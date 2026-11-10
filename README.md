@@ -1,17 +1,16 @@
 # Calculator
 
-A C# Blazor WebAssembly calculator for the browser. It includes a basic calculator, online currency conversion (including KGS and RUB), linear/quadratic equation solving, fuel-cost calculation, persistent calculation history, light/dark themes, and Russian/English UI.
+A React + Vite browser calculator with a basic calculator, online currency conversion (including KGS and RUB), linear/quadratic equation solving, fuel-cost calculation, persistent browser history, light/dark themes, and Russian/English UI.
 
 ## Run locally
 
-Install the .NET 10 SDK, then from `CalculatorWeb` run:
-
 ```powershell
-dotnet run
+npm install
+npm run dev
 ```
 
 ## Deploy to Vercel
 
-Import this repository into Vercel and leave **Root Directory** at the repository root. The root `vercel.json` runs the build script in `CalculatorWeb`, installs the .NET 10 SDK if needed, publishes the Blazor app, and serves the static output from `CalculatorWeb/publish/wwwroot`.
+Import this repository into Vercel and use the Vite preset. The root `vercel.json` configures `npm run build` and publishes `dist`.
 
-Currency rates are fetched from ExchangeRate-API's open endpoint and require an internet connection. Settings and history are stored in the browser's local storage on that device.
+Currency rates use ExchangeRate-API's open endpoint and require an internet connection. Preferences and history are saved in the current browser's local storage.

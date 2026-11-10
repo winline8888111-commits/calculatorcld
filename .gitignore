@@ -1,5 +1,8 @@
+node_modules/
+dist/
 .artifacts/
 CalculatorWeb/bin/
 CalculatorWeb/obj/
 CalculatorWeb/publish/
-CalculatorWeb/.vs/
+.vercel/
+*.log

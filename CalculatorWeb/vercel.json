@@ -1,5 +1,0 @@
-{
-  "installCommand": "echo Skipping npm install; dependencies are restored by dotnet publish",
-  "buildCommand": "bash ./vercel-build.sh",
-  "outputDirectory": "publish/wwwroot"
-}

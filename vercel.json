@@ -1,5 +1,6 @@
 {
-  "installCommand": "echo Skipping package-manager install; dotnet publish restores the project",
-  "buildCommand": "bash ./CalculatorWeb/vercel-build.sh",
-  "outputDirectory": "CalculatorWeb/publish/wwwroot"
+  "framework": "vite",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist"
 }
