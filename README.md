@@ -12,6 +12,6 @@ dotnet run
 
 ## Deploy to Vercel
 
-Import this repository into Vercel and set **Root Directory** to `CalculatorWeb`. The included `vercel.json` installs the .NET 10 SDK if needed, publishes the Blazor app, and serves the static output from `publish/wwwroot`.
+Import this repository into Vercel and leave **Root Directory** at the repository root. The root `vercel.json` runs the build script in `CalculatorWeb`, installs the .NET 10 SDK if needed, publishes the Blazor app, and serves the static output from `CalculatorWeb/publish/wwwroot`.
 
 Currency rates are fetched from ExchangeRate-API's open endpoint and require an internet connection. Settings and history are stored in the browser's local storage on that device.

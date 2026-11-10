@@ -1,0 +1,5 @@
+{
+  "installCommand": "echo Skipping package-manager install; dotnet publish restores the project",
+  "buildCommand": "bash ./CalculatorWeb/vercel-build.sh",
+  "outputDirectory": "CalculatorWeb/publish/wwwroot"
+}
