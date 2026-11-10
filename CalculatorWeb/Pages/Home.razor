@@ -1,0 +1,546 @@
+@page "/"
+@using System.Globalization
+@using System.Net.Http
+@using System.Text.Json
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>@T("Калькулятор", "Calculator")</PageTitle>
+
+<div class="app-shell @(_theme == "light" ? "theme-light" : "theme-dark")">
+    <header class="topbar">
+        <button class="icon-button menu-button" aria-label="@T("Открыть меню", "Open menu")" @onclick="ToggleMenu">☰</button>
+        <div class="brand-mark">∑</div>
+        <div class="brand-name">@T("Калькулятор", "Calculator")</div>
+        <div class="topbar-spacer"></div>
+        <button class="icon-button settings-shortcut" aria-label='@T("Настройки", "Settings")' @onclick='() => Navigate("settings")'>⚙</button>
+    </header>
+
+    <div class="app-body">
+        <aside class="sidebar">
+            <nav class="nav-list" aria-label="@T("Режимы приложения", "App modes")">
+                <button class='nav-item @Active("calculator")' @onclick='() => Navigate("calculator")'><span>◉</span>@T("Калькулятор", "Calculator")</button>
+                <button class='nav-item @Active("currency")' @onclick='() => Navigate("currency")'><span>⇄</span>@T("Валюты", "Currency")</button>
+                <button class='nav-item @Active("math")' @onclick='() => Navigate("math")'><span>ƒ</span>@T("Решатель задач", "Math solver")</button>
+                <button class='nav-item @Active("fuel")' @onclick='() => Navigate("fuel")'><span>⌁</span>@T("Расход топлива", "Fuel cost")</button>
+                <button class='nav-item @Active("history")' @onclick='() => Navigate("history")'><span>◷</span>@T("История", "History")</button>
+            </nav>
+            <div class="sidebar-bottom">
+                <button class='nav-item @Active("settings")' @onclick='() => Navigate("settings")'><span>⚙</span>@T("Настройки", "Settings")</button>
+            </div>
+        </aside>
+
+        @if (_menuOpen)
+        {
+            <div class="mobile-backdrop" @onclick="() => _menuOpen = false">
+                <aside class="mobile-drawer" @onclick:stopPropagation="true">
+                    <div class="drawer-heading">@T("Меню", "Menu")</div>
+                    <button class='nav-item @Active("calculator")' @onclick='() => Navigate("calculator")'><span>◉</span>@T("Калькулятор", "Calculator")</button>
+                    <button class='nav-item @Active("currency")' @onclick='() => Navigate("currency")'><span>⇄</span>@T("Валюты", "Currency")</button>
+                    <button class='nav-item @Active("math")' @onclick='() => Navigate("math")'><span>ƒ</span>@T("Решатель задач", "Math solver")</button>
+                    <button class='nav-item @Active("fuel")' @onclick='() => Navigate("fuel")'><span>⌁</span>@T("Расход топлива", "Fuel cost")</button>
+                    <button class='nav-item @Active("history")' @onclick='() => Navigate("history")'><span>◷</span>@T("История", "History")</button>
+                    <div class="drawer-divider"></div>
+                    <button class='nav-item @Active("settings")' @onclick='() => Navigate("settings")'><span>⚙</span>@T("Настройки", "Settings")</button>
+                </aside>
+            </div>
+        }
+
+        <main class="main-content">
+            @if (_page == "calculator")
+            {
+                <section class="calculator-page page-enter">
+                    <div class="calculator-card">
+                        <div class="page-heading">@T("Калькулятор", "Calculator")</div>
+                        <div class="calc-display">
+                            <div class="calc-history">@_calculator.History</div>
+                            <div class="calc-value" title="@_calculator.Display">@_calculator.Display</div>
+                        </div>
+                        <div class="keypad">
+                            <button class="key key-function" @onclick="ClearCalc">AC</button>
+                            <button class="key key-function" @onclick="ToggleSign">+/−</button>
+                            <button class="key key-function" @onclick="ApplyPercent">%</button>
+                            <button class="key key-operator" @onclick="() => SetOperator('/')">÷</button>
+
+                            <button class="key" @onclick="() => InputDigit('7')">7</button>
+                            <button class="key" @onclick="() => InputDigit('8')">8</button>
+                            <button class="key" @onclick="() => InputDigit('9')">9</button>
+                            <button class="key key-operator" @onclick="() => SetOperator('*')">×</button>
+
+                            <button class="key" @onclick="() => InputDigit('4')">4</button>
+                            <button class="key" @onclick="() => InputDigit('5')">5</button>
+                            <button class="key" @onclick="() => InputDigit('6')">6</button>
+                            <button class="key key-operator" @onclick="() => SetOperator('-')">−</button>
+
+                            <button class="key" @onclick="() => InputDigit('1')">1</button>
+                            <button class="key" @onclick="() => InputDigit('2')">2</button>
+                            <button class="key" @onclick="() => InputDigit('3')">3</button>
+                            <button class="key key-operator" @onclick="() => SetOperator('+')">+</button>
+
+                            <button class="key key-zero" @onclick="() => InputDigit('0')">0</button>
+                            <button class="key" @onclick="InputDecimal">.</button>
+                            <button class="key key-equals" @onclick="Calculate">=</button>
+                        </div>
+                    </div>
+                </section>
+            }
+            else if (_page == "currency")
+            {
+                <section class="tool-page page-enter">
+                    <h1>@T("Конвертер валют", "Currency converter")</h1>
+                    <p class="subtitle">@T("Справочные курсы обновляются ежедневно. Требуется подключение к интернету.", "Reference rates update daily. An internet connection is required.")</p>
+                    <div class="form-card">
+                        <label for="currency-amount">@T("Сумма", "Amount")</label>
+                        <input id="currency-amount" type="number" min="0" step="any" @bind="_currencyAmount" />
+                        <div class="form-grid">
+                            <div>
+                                <label for="currency-from">@T("Из валюты", "From currency")</label>
+                                <select id="currency-from" @bind="_currencyFrom">
+                                    @foreach (var currencyCode in Currencies)
+                                    {
+                                        <option value="@currencyCode">@(CurrencyLabel(currencyCode))</option>
+                                    }
+                                </select>
+                            </div>
+                            <div>
+                                <label for="currency-to">@T("В валюту", "To currency")</label>
+                                <select id="currency-to" @bind="_currencyTo">
+                                    @foreach (var currencyCode in Currencies)
+                                    {
+                                        <option value="@currencyCode">@(CurrencyLabel(currencyCode))</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <button class="primary-button" disabled="@_currencyLoading" @onclick="ConvertCurrency">
+                            @(_currencyLoading ? T("Загрузка курса…", "Loading rate…") : T("Конвертировать", "Convert"))
+                        </button>
+                        @if (!string.IsNullOrWhiteSpace(_currencyResult))
+                        {
+                            <div class="result-value">@_currencyResult</div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_currencyMessage))
+                        {
+                            <div class="status-message">@_currencyMessage</div>
+                        }
+                    </div>
+                </section>
+            }
+            else if (_page == "math")
+            {
+                <section class="tool-page page-enter">
+                    <h1>@T("Решатель задач", "Math solver")</h1>
+                    <p class="subtitle">@T("Введите выражение или уравнение с x. Например: 2x + 3 = 11 или x^2 − 5x + 6 = 0.", "Enter an expression or equation with x, e.g. 2x + 3 = 11 or x^2 - 5x + 6 = 0.")</p>
+                    <div class="form-card">
+                        <label for="math-input">@T("Выражение или уравнение", "Expression or equation")</label>
+                        <input id="math-input" class="large-input" @bind="_mathInput" @bind:event="oninput" @onkeydown="OnMathKeyDown" />
+                        <button class="primary-button" @onclick="SolveMath">@T("Решить", "Solve")</button>
+                        @if (!string.IsNullOrWhiteSpace(_mathAnswer))
+                        {
+                            <div class="result-value">@_mathAnswer</div>
+                            <div class="steps-list">
+                                @foreach (var step in _mathSteps)
+                                {
+                                    <div>@step</div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
+            else if (_page == "fuel")
+            {
+                <section class="tool-page page-enter">
+                    <h1>@T("Расход топлива", "Fuel cost")</h1>
+                    <p class="subtitle">@T("Стоимость поездки по цене топлива, расходу и расстоянию.", "Estimate trip cost from fuel price, consumption, and distance.")</p>
+                    <div class="form-card">
+                        <div class="form-grid">
+                            <div>
+                                <label for="fuel-price">@T("Цена за литр", "Price per liter")</label>
+                                <input id="fuel-price" type="number" min="0" step="any" @bind="_fuelPrice" />
+                            </div>
+                            <div>
+                                <label for="fuel-currency">@T("Валюта", "Currency")</label>
+                                <select id="fuel-currency" @bind="_fuelCurrency">
+                                    @foreach (var currencyCode in Currencies)
+                                    {
+                                        <option value="@currencyCode">@(CurrencyLabel(currencyCode))</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <label for="fuel-consumption">@T("Расход, л/100 км", "Consumption, L/100 km")</label>
+                        <input id="fuel-consumption" type="number" min="0.01" step="any" @bind="_fuelConsumption" />
+                        <label for="fuel-distance">@T("Расстояние, км", "Distance, km")</label>
+                        <input id="fuel-distance" type="number" min="0" step="any" @bind="_fuelDistance" />
+                        <button class="primary-button" @onclick="CalculateFuel">@T("Рассчитать стоимость", "Calculate cost")</button>
+                        @if (!string.IsNullOrWhiteSpace(_fuelResult))
+                        {
+                            <div class="result-value">@_fuelResult</div>
+                            <div class="status-message">@_fuelDetails</div>
+                        }
+                    </div>
+                </section>
+            }
+            else if (_page == "history")
+            {
+                <section class="tool-page page-enter">
+                    <div class="history-heading">
+                        <h1>@T("История вычислений", "Calculation history")</h1>
+                        @if (_history.Count > 0)
+                        {
+                            <button class="secondary-button" @onclick="ClearHistory">@T("Очистить", "Clear")</button>
+                        }
+                    </div>
+                    @if (_history.Count == 0)
+                    {
+                        <div class="empty-state">@T("Здесь появятся выполненные вычисления.", "Your calculations will appear here.")</div>
+                    }
+                    else
+                    {
+                        <div class="history-list">
+                            @foreach (var entry in _history)
+                            {
+                                <article class="history-entry">
+                                    <div>@entry.Summary</div>
+                                    <time>@entry.CreatedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)</time>
+                                </article>
+                            }
+                        </div>
+                    }
+                </section>
+            }
+            else
+            {
+                <section class="tool-page page-enter">
+                    <h1>@T("Настройки", "Settings")</h1>
+                    <div class="form-card settings-card">
+                        <label>@T("Тема", "Theme")</label>
+                        <div class="choice-row">
+                            <button class='choice-button @(_theme == "light" ? "selected" : "")' @onclick='() => SetTheme("light")'>☀ @T("Светлая", "Light")</button>
+                            <button class='choice-button @(_theme == "dark" ? "selected" : "")' @onclick='() => SetTheme("dark")'>☾ @T("Тёмная", "Dark")</button>
+                        </div>
+                        <label for="language">@T("Язык", "Language")</label>
+                        <select id="language" value="@_language" @onchange="ChangeLanguage">
+                            <option value="ru">Русский</option>
+                            <option value="en">English</option>
+                        </select>
+                    </div>
+                </section>
+            }
+        </main>
+    </div>
+</div>
+
+@code {
+    private static readonly string[] Currencies =
+    [
+        "USD", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF", "CNY",
+        "SEK", "NOK", "PLN", "CZK", "TRY", "NZD", "HUF", "RON", "KGS", "RUB"
+    ];
+
+    private static readonly Dictionary<string, string> CurrencyNamesRu = new()
+    {
+        ["USD"] = "Доллар США", ["EUR"] = "Евро", ["GBP"] = "Фунт стерлингов",
+        ["JPY"] = "Японская иена", ["CAD"] = "Канадский доллар", ["AUD"] = "Австралийский доллар",
+        ["CHF"] = "Швейцарский франк", ["CNY"] = "Китайский юань", ["SEK"] = "Шведская крона",
+        ["NOK"] = "Норвежская крона", ["PLN"] = "Польский злотый", ["CZK"] = "Чешская крона",
+        ["TRY"] = "Турецкая лира", ["NZD"] = "Новозеландский доллар", ["HUF"] = "Венгерский форинт",
+        ["RON"] = "Румынский лей", ["KGS"] = "Кыргызский сом", ["RUB"] = "Российский рубль"
+    };
+
+    private readonly CalculatorEngine _calculator = new();
+    private readonly List<WebHistoryEntry> _history = [];
+    private string _page = "calculator";
+    private string _theme = "dark";
+    private string _language = "ru";
+    private bool _menuOpen;
+    private bool _currencyLoading;
+    private string _currencyAmount = "1";
+    private string _currencyFrom = "USD";
+    private string _currencyTo = "EUR";
+    private string _currencyResult = string.Empty;
+    private string _currencyMessage = string.Empty;
+    private string _mathInput = "2x + 3 = 11";
+    private string _mathAnswer = string.Empty;
+    private IReadOnlyList<string> _mathSteps = [];
+    private string _fuelPrice = "1.70";
+    private string _fuelCurrency = "KGS";
+    private string _fuelConsumption = "7.5";
+    private string _fuelDistance = "100";
+    private string _fuelResult = string.Empty;
+    private string _fuelDetails = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var settingsJson = await JS.InvokeAsync<string?>("calculatorStorage.get", "settings");
+            if (!string.IsNullOrWhiteSpace(settingsJson))
+            {
+                var settings = JsonSerializer.Deserialize<WebSettings>(settingsJson);
+                if (settings?.Theme is "light" or "dark")
+                {
+                    _theme = settings.Theme;
+                }
+
+                if (settings?.Language is "ru" or "en")
+                {
+                    _language = settings.Language;
+                }
+            }
+
+            var historyJson = await JS.InvokeAsync<string?>("calculatorStorage.get", "history");
+            if (!string.IsNullOrWhiteSpace(historyJson))
+            {
+                _history.AddRange(JsonSerializer.Deserialize<List<WebHistoryEntry>>(historyJson) ?? []);
+                _history.Sort((left, right) => right.CreatedAt.CompareTo(left.CreatedAt));
+            }
+        }
+        catch (JSException)
+        {
+            _currencyMessage = T("Браузер не разрешил прочитать локальные настройки.", "The browser did not allow reading local settings.");
+        }
+        catch (JsonException)
+        {
+            _history.Clear();
+        }
+    }
+
+    private string T(string russian, string english) => _language == "ru" ? russian : english;
+    private string Active(string page) => _page == page ? "active" : string.Empty;
+    private string CurrencyLabel(string code) =>
+        _language == "ru" && CurrencyNamesRu.TryGetValue(code, out var name) ? $"{code} — {name}" : code;
+
+    private void Navigate(string page)
+    {
+        _page = page;
+        _menuOpen = false;
+    }
+
+    private void ToggleMenu() => _menuOpen = !_menuOpen;
+
+    private void InputDigit(char digit)
+    {
+        _calculator.InputDigit(digit);
+    }
+
+    private void InputDecimal() => _calculator.InputDecimalSeparator();
+    private void ClearCalc() => _calculator.Clear();
+    private void ToggleSign() => _calculator.ToggleSign();
+    private void ApplyPercent() => _calculator.ApplyPercent();
+    private void SetOperator(char operation) => _calculator.SetOperator(operation);
+
+    private async Task Calculate()
+    {
+        _calculator.Calculate();
+        if (!string.IsNullOrWhiteSpace(_calculator.History))
+        {
+            await AddHistory(_calculator.History);
+        }
+    }
+
+    private async Task ConvertCurrency()
+    {
+        _currencyResult = string.Empty;
+        _currencyMessage = string.Empty;
+        if (!TryParse(_currencyAmount, out var amount) || amount < 0)
+        {
+            _currencyMessage = T("Введите корректную неотрицательную сумму.", "Enter a valid non-negative amount.");
+            return;
+        }
+
+        if (_currencyFrom == _currencyTo)
+        {
+            _currencyResult = $"{FormatMoney(amount)} {_currencyTo}";
+            await AddHistory($"{FormatMoney(amount)} {_currencyFrom} → {FormatMoney(amount)} {_currencyTo}");
+            return;
+        }
+
+        _currencyLoading = true;
+        _currencyMessage = T("Загружаю справочный курс…", "Loading reference rate…");
+        try
+        {
+            using var response = await Http.GetAsync($"https://open.er-api.com/v6/latest/{Uri.EscapeDataString(_currencyFrom)}");
+            response.EnsureSuccessStatusCode();
+            await using var stream = await response.Content.ReadAsStreamAsync();
+            using var document = await JsonDocument.ParseAsync(stream);
+            var root = document.RootElement;
+            if (!root.TryGetProperty("result", out var result)
+                || result.GetString() != "success"
+                || !root.TryGetProperty("base_code", out var baseCode)
+                || baseCode.GetString() != _currencyFrom
+                || !root.TryGetProperty("rates", out var rates)
+                || !rates.TryGetProperty(_currencyTo, out var rateElement)
+                || !rateElement.TryGetDecimal(out var rate)
+                || rate <= 0)
+            {
+                throw new InvalidDataException("Invalid exchange rate response.");
+            }
+
+            var converted = amount * rate;
+            _currencyResult = $"{FormatMoney(converted)} {_currencyTo}";
+            _currencyMessage = $"{T("Курс", "Rate")}: 1 {_currencyFrom} = {FormatMoney(rate)} {_currencyTo}";
+            await AddHistory($"{FormatMoney(amount)} {_currencyFrom} → {FormatMoney(converted)} {_currencyTo}");
+        }
+        catch (HttpRequestException)
+        {
+            _currencyMessage = T("Не удалось получить курс. Проверьте подключение и попробуйте снова.", "Could not get the rate. Check your connection and try again.");
+        }
+        catch (TaskCanceledException)
+        {
+            _currencyMessage = T("Сервис курсов не ответил вовремя. Попробуйте ещё раз.", "The exchange-rate service timed out. Try again.");
+        }
+        catch (JsonException)
+        {
+            _currencyMessage = T("Сервис курсов вернул некорректный ответ.", "The exchange-rate service returned an invalid response.");
+        }
+        catch (InvalidDataException)
+        {
+            _currencyMessage = T("Курс выбранной валюты недоступен.", "The selected currency rate is unavailable.");
+        }
+        catch (OverflowException)
+        {
+            _currencyMessage = T("Сумма слишком велика.", "The amount is too large.");
+        }
+        finally
+        {
+            _currencyLoading = false;
+        }
+    }
+
+    private async Task SolveMath()
+    {
+        try
+        {
+            var solution = MathSolver.Solve(_mathInput);
+            _mathAnswer = solution.Answer;
+            _mathSteps = solution.Steps;
+            await AddHistory($"{_mathInput.Trim()} → {solution.Answer}");
+        }
+        catch (FormatException)
+        {
+            _mathAnswer = T("Не удалось решить задачу.", "Could not solve this problem.");
+            _mathSteps = [T("Поддерживаются числа, скобки, +, −, ×, ÷ и степени до 2.", "Numbers, parentheses, +, −, ×, ÷, and powers up to 2 are supported.")];
+        }
+        catch (OverflowException)
+        {
+            _mathAnswer = T("Числа слишком велики для вычисления.", "Numbers are too large to calculate.");
+            _mathSteps = [];
+        }
+        catch (DivideByZeroException)
+        {
+            _mathAnswer = T("Деление на ноль невозможно.", "Division by zero is not allowed.");
+            _mathSteps = [];
+        }
+    }
+
+    private async Task OnMathKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await SolveMath();
+        }
+    }
+
+    private async Task CalculateFuel()
+    {
+        if (!TryParse(_fuelPrice, out var price) || price < 0
+            || !TryParse(_fuelConsumption, out var consumption) || consumption <= 0
+            || !TryParse(_fuelDistance, out var distance) || distance < 0)
+        {
+            _fuelResult = T("Проверьте введённые данные.", "Check the values you entered.");
+            _fuelDetails = T("Цена и расстояние должны быть неотрицательными, расход — больше нуля.", "Price and distance must be non-negative; consumption must be greater than zero.");
+            return;
+        }
+
+        try
+        {
+            var liters = consumption * distance / 100m;
+            var total = liters * price;
+            _fuelResult = $"{FormatMoney(total)} {_fuelCurrency}";
+            _fuelDetails = string.Format(
+                CultureInfo.CurrentCulture,
+                T("Понадобится топлива: {0} л. Цена: {1} {2}/л.", "Fuel needed: {0} L. Price: {1} {2}/L."),
+                FormatMoney(liters),
+                FormatMoney(price),
+                _fuelCurrency);
+            await AddHistory($"{T("Поездка", "Trip")}: {FormatMoney(distance)} km, {FormatMoney(liters)} L → {_fuelResult}");
+        }
+        catch (OverflowException)
+        {
+            _fuelResult = T("Результат слишком большой.", "The result is too large.");
+            _fuelDetails = string.Empty;
+        }
+    }
+
+    private async Task SetTheme(string theme)
+    {
+        _theme = theme;
+        await SaveSettings();
+    }
+
+    private async Task ChangeLanguage(ChangeEventArgs args)
+    {
+        if (args.Value is string language && language is "ru" or "en")
+        {
+            _language = language;
+            await SaveSettings();
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("calculatorStorage.set", "settings", JsonSerializer.Serialize(new WebSettings(_theme, _language)));
+        }
+        catch (JSException)
+        {
+            _currencyMessage = T("Не удалось сохранить настройки в браузере.", "Could not save settings in this browser.");
+        }
+    }
+
+    private async Task AddHistory(string summary)
+    {
+        _history.Insert(0, new WebHistoryEntry(summary, DateTimeOffset.UtcNow));
+        if (_history.Count > 300)
+        {
+            _history.RemoveRange(300, _history.Count - 300);
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("calculatorStorage.set", "history", JsonSerializer.Serialize(_history));
+        }
+        catch (JSException)
+        {
+            _currencyMessage = T("Не удалось сохранить историю в браузере.", "Could not save history in this browser.");
+        }
+    }
+
+    private async Task ClearHistory()
+    {
+        _history.Clear();
+        try
+        {
+            await JS.InvokeVoidAsync("calculatorStorage.set", "history", "[]");
+        }
+        catch (JSException)
+        {
+            _currencyMessage = T("Не удалось очистить историю в браузере.", "Could not clear browser history.");
+        }
+    }
+
+    private static bool TryParse(string? value, out decimal result) =>
+        decimal.TryParse(
+            (value ?? string.Empty).Trim().Replace(',', '.'),
+            NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
+            CultureInfo.InvariantCulture,
+            out result);
+
+    private static string FormatMoney(decimal value) => value.ToString("N2", CultureInfo.CurrentCulture);
+
+    private sealed record WebSettings(string Theme, string Language);
+    private sealed record WebHistoryEntry(string Summary, DateTimeOffset CreatedAt);
+}

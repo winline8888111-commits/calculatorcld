@@ -1,0 +1,5 @@
+.artifacts/
+CalculatorWeb/bin/
+CalculatorWeb/obj/
+CalculatorWeb/publish/
+CalculatorWeb/.vs/
